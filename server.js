@@ -1,9 +1,8 @@
+const { v4 } = require('uuid');
 const path = require('path');
 const http = require('http');
 const express = require('express');
 const socketIO = require('socket.io');
-const Database = require('./database.js');
-const database = new Database();
 
 const port = process.env.PORT || 5000;
 const prod = process.env.NODE_ENV === 'production'
@@ -18,91 +17,106 @@ server.listen(port, () => console.log('Listening on ' + port));
 const io = socketIO(server);
 
 let ids = new Map();
+let gameCodes = new Array();
+let games = new Map();
+let users = new Map();
 
 io.on('connection', socket => {
 	console.log("New user " + socket.id);
 
 	socket.on("userSync", async name => {
-		let gameCodes = await database.getGameCodes();
 		socket.emit("gameCodesUpdated", gameCodes);
 
 		if (!name)
 			return;
 
-		let {id, currentRoom} = await userNamed(socket, name, true);
+		let user = userNamed(socket, name);
 
-		if (currentRoom){
-			let game = await database.getGame(currentRoom);
-			socket.emit("gameUpdated", game);
-			socket.emit("messagesUpdated", game.messages);
+		if (user.currentRoom){
+			socket.emit("gameUpdated", games.get(user.currentRoom));
+			socket.emit("messagesUpdated", games.get(user.currentRoom).messages);
 		}
 	});
 
 
 	socket.on('createGame', async name => {
-		let uid = await userNamed(socket, name);
+		let user = userNamed(socket, name);
 
-		let gameCodes = await database.getGameCodes();
-		let gameCode = generateGameCode(gameCodes);
+		let gameCode = generateGameCode();
+		gameCodes.push(gameCode);
 
-		let game = await database.createGame(gameCode, uid, name);
-		gameCodes = await database.getGameCodes();
+		let game = {gameCode: gameCode, leaderId: user.id, players: [{
+			id: user.id,
+			name: user.name,
+			location: 0
+		}], messages: [{message: user.name + " joined the game", senderName: 'Server'}]};
+		games.set(gameCode, game);
 
 		socket.join(gameCode);
-		ids.get(socket.id).gameCode = gameCode;
-		socket.emit("gameJoined", {game: game, me: {uid: uid, name: name}});
+		user.currentRoom = gameCode;
+		socket.emit("gameJoined", {game: game, me: {uid: user.id, name: user.name}});
 		io.emit("gameCodesUpdated", gameCodes);
 	});
 
 	socket.on('joinGame', async params => {
-		let uid = await userNamed(socket, params.name);
+		let user = userNamed(socket, params.name);
 
-		let game = await database.addPlayerToGame(params.gameCode, uid, params.name);
+		let game = games.get(params.gameCode);
+		game.players.push({id: user.id, name: user.name, location: 0});
+		game.messages.push({message: user.name + " joined the game", senderName: 'Server'});
 
 		socket.join(params.gameCode);
-		ids.get(socket.id).gameCode = params.gameCode;
+		user.currentRoom = params.gameCode;
 
-		socket.emit("gameJoined", {game: game, me: {uid: uid, name: params.name}});
+		socket.emit("gameJoined", {game: game, me: {uid: user.id, name: params.name}});
 		io.to(params.gameCode).emit("gameUpdated", game);
 		io.to(params.gameCode).emit("messagesUpdated", game.messages);
 	});
 
 	socket.on('sendMessage', async message => {
-		let {id, name, gameCode} = ids.get(socket.id);
-		let messages = await database.addMessage(gameCode, message, name, false);
-		io.to(gameCode).emit("messagesUpdated", messages);
+		let name = ids.get(socket.id);
+		let user = users.get(name);
+		let messages = games.get(user.currentRoom).messages;
+		messages.push({message: message, senderName: user.name});
+		io.to(user.currentRoom).emit("messagesUpdated", messages);
 	});
 
-	socket.on('quitGame', async () => {
-		let {id, name, gameCode} = ids.get(socket.id);
-		let game = await database.removePlayerFromGame(gameCode, id);
-		socket.leave(gameCode);
-		if (game){
-			io.to(gameCode).emit("gameUpdated", game);
-			io.to(gameCode).emit("messagesUpdated", game.messages);
+	socket.on('quitGame', () => {
+		let name = ids.get(socket.id);
+		let user = users.get(name);
+		socket.leave(user.currentRoom);
+
+		if (!games.has(user.currentRoom))
+			return;
+
+		let game = games.get(user.currentRoom);
+		if (game.leaderId === user.id){
+			io.to(user.currentRoom).emit('forceQuit');
+			games.delete(user.currentRoom);
+			gameCodes = gameCodes.filter((value, index, arr) => (value != user.currentRoom));
+			io.emit("gameCodesUpdated", gameCodes);
 		} else {
-			io.to(gameCode).emit("forceQuit");
+			game.players = game.players.filter((value, index, arr) => (value.id != user.id));
+			game.messages.push({message: user.name + " left the game", senderName: 'Server'});
+			io.to(user.currentRoom).emit("gameUpdated", game);
+			io.to(user.currentRoom).emit("messagesUpdated", game.messages);
 		}
 	});
 });
 
-async function userNamed(socket, name, returnRoom = false){
-	let { id, currentRoom, returning } = await database.getOrCreateUser(name);
-	ids.set(socket.id, {id: id, name: name, gameCode: currentRoom});
-	if (currentRoom)
-		socket.join(currentRoom);
+function userNamed(socket, name){
+	if (!users.has(name))
+		users.set(name, {id: v4(), name: name, currentRoom: ''});
 
-	if (returning)
-		socket.emit("welcomeBack");
-	else
-		socket.emit("welcome");
+	let user = users.get(name);
+	ids.set(socket.id, name);
+	if (user.currentRoom)
+		socket.join(user.currentRoom);
 
-	if (returnRoom)
-		return {id: id, currentRoom: currentRoom};
-	return id;
+	return user;
 }
 
-function generateGameCode(gameCodes){
+function generateGameCode(){
 	let randCode;
 	do
 		randCode = ("000000" + Math.floor(Math.random() * 1000000)).slice(-6);

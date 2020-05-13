@@ -24,10 +24,17 @@ class GameWaiting extends React.Component {
 				players: this.game.players
 			}));
 		});
+
+		this.socket.on("forceQuit", () => {
+			this.socket.emit("quitGame");
+			this.setState((state, props) => ({
+				goBack: true
+			}));
+		});
 	}
 
 	handleQuit = () => {
-		this.socket.emit("quitGame", {name: this.me.name, game: this.game.gameCode});
+		this.socket.emit("quitGame");
 		this.setState((state, props) => ({
 			goBack: true
 		}));
