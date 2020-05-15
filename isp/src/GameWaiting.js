@@ -12,7 +12,7 @@ class GameWaiting extends React.Component {
 		this.game = props.game;
 		this.me = props.me;
 
-		this.state = {players: this.game.players, goBack: false};
+		this.state = {players: this.game.players, goBack: false, goForward: false};
 	}
 
 	componentDidMount(){
@@ -41,11 +41,17 @@ class GameWaiting extends React.Component {
 	}
 
 	handleStartGame = () => {
+		this.socket.emit("startGame");
+		this.setState((state, props) => ({
+			goForward: true
+		}));
 	}
 
 	render(){
 		if (this.state.goBack)
 			return <Redirect to={{pathname: '/', state: {name: this.me.name}}}/>;
+		else if (this.state.goForward)
+			return <Redirect to={{pathname: '/game/' + this.game.gameCode, state: {game: this.game, me: this.me}}}/>;
 
 		return (
 			<Grid container style={{minHeight: '100vh'}} direction='row' justify='center' alignItems='center'>

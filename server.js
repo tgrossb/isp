@@ -24,7 +24,7 @@ let users = new Map();
 io.on('connection', socket => {
 	console.log("New user " + socket.id);
 
-	socket.on("userSync", async name => {
+	socket.on("userSync", name => {
 		socket.emit("gameCodesUpdated", gameCodes);
 
 		if (!name)
@@ -39,7 +39,7 @@ io.on('connection', socket => {
 	});
 
 
-	socket.on('createGame', async name => {
+	socket.on('createGame', name => {
 		let user = userNamed(socket, name);
 
 		let gameCode = generateGameCode();
@@ -58,7 +58,7 @@ io.on('connection', socket => {
 		io.emit("gameCodesUpdated", gameCodes);
 	});
 
-	socket.on('joinGame', async params => {
+	socket.on('joinGame', params => {
 		let user = userNamed(socket, params.name);
 
 		let game = games.get(params.gameCode);
@@ -73,7 +73,7 @@ io.on('connection', socket => {
 		io.to(params.gameCode).emit("messagesUpdated", game.messages);
 	});
 
-	socket.on('sendMessage', async message => {
+	socket.on('sendMessage', message => {
 		let name = ids.get(socket.id);
 		let user = users.get(name);
 		let messages = games.get(user.currentRoom).messages;
