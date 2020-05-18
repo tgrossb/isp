@@ -36,6 +36,18 @@ io.on('connection', socket => {
 			socket.emit("gameUpdated", games.get(user.currentRoom));
 			socket.emit("messagesUpdated", games.get(user.currentRoom).messages);
 		}
+
+		if (!games.get(user.currentRoom))
+			return;
+
+		let game = games.get(user.currentRoom);
+		if (game.currentPlayer){
+			let locations = [];
+			for (let p of game.players)
+				locations.push(p.location);
+			socket.emit("playersSquaresUpdated", locations)
+			socket.emit("turnChanged", game.players[game.currentPlayer].id);
+		}
 	});
 
 
@@ -102,6 +114,62 @@ io.on('connection', socket => {
 			io.to(user.currentRoom).emit("messagesUpdated", game.messages);
 		}
 	});
+
+	socket.on('startGame', () => {
+		let name = ids.get(socket.id);
+		let user = users.get(name);
+		let game = games.get(user.currentRoom);
+		game.currentPlayer = 0;
+		io.to(user.currentRoom).emit('gameStarted');
+		io.to(user.currentRoom).emit("turnChanged", game.players[game.currentPlayer].id);
+	});
+
+	socket.on('rollDie', () => {
+		let name = ids.get(socket.id);
+		let user = users.get(name);
+		let game = games.get(user.currentRoom);
+		let pIndex = game.players.findIndex(p => (p.id === user.id));
+		if (pIndex !== game.currentPlayer)
+			return;
+
+		let num = Math.floor(Math.random() * 6) + 1;
+		io.to(user.currentRoom).emit("rollCompleted", num);
+		game.players[pIndex].location += num;
+		game.currentPlayer = (pIndex+1) % game.players.length;
+	});
+
+	socket.on('requestPlayersSquares', () => {
+		let name = ids.get(socket.id);
+		let user = users.get(name);
+		let game = games.get(user.currentRoom);
+
+		let locations = [];
+		for (let p of game.players)
+			locations.push(p.location);
+
+		socket.emit('playersSquaresUpdated', locations);
+	});
+
+	socket.on('requestCard', () => {
+		let name = ids.get(socket.id);
+		let user = users.get(name);
+		let game = games.get(user.currentRoom);
+
+		let cardKey = calcCardKey(game.players[game.currentPlayer].location);
+		let card = getCard(cardKey);
+		card.ownerId = game.players[game.currentPlayer].id;
+		console.log("serving card");
+		socket.emit('cardServed', card);
+
+		game.players[game.currentPlayer].location += card.offset;
+		let locations = [];
+		for (let p of game.players)
+			locations.push(p.location);
+
+		console.log("updating locations");
+		socket.emit('playersSquaresUpdated', locations);
+		socket.emit('turnChanged', game.players[game.currentPlayer].id);
+	})
 });
 
 function userNamed(socket, name){
@@ -122,4 +190,35 @@ function generateGameCode(){
 		randCode = ("000000" + Math.floor(Math.random() * 1000000)).slice(-6);
 	while (gameCodes.includes(randCode))
 	return randCode;
+}
+
+function calcCardKey(index){
+	if (index <= 0)
+		return -1;
+
+	index--;
+	if (index < 20)
+		return Math.floor(index/5);
+	index -= 20;
+	if (index < 16)
+		return Math.floor(index/4);
+	index -= 16;
+	if (index < 12)
+		return Math.floor(index/3);
+	index -= 12;
+	if (index < 8)
+		return Math.floor(index/2);
+	index -= 8;
+	if (index < 4)
+		return index;
+	return 4;
+}
+
+function getCard(cardKey){
+	if (cardKey === -1)
+		return {present: false};
+	else if (cardKey < 4)
+		return {type: cardKey, text: 'sample text', offset: 1};
+	else
+		return {present: false};
 }

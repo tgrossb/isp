@@ -1,12 +1,13 @@
 import React from 'react';
 import { Redirect } from 'react-router';
-import { Button, TextField, Divider, Card, CardContent, Box, Grid, List, ListItemText, IconButton } from '@material-ui/core';
-import Chat from './Chat.js';
+import { Box, Grid} from '@material-ui/core';
 import CCIcon from '@material-ui/icons/Eco';
 import CultIcon from '@material-ui/icons/SupervisorAccount';
 import SysIcon from '@material-ui/icons/Settings';
 import FinIcon from '@material-ui/icons/AccountBalance';
+import Chat from './Chat.js';
 import Square from './Square.js';
+import Die from './Die.js';
 import Consts from './Consts.js';
 
 class Client extends React.Component {
@@ -19,28 +20,70 @@ class Client extends React.Component {
 
 		Square.generateLocations();
 
-		this.state = {playersSquares: [0, 0, 0, 0]};
+		this.state = {playersSquares: [0, 0, 0, 0], dieNumber: 6, card: {present: false}, yourTurn: false};
 	}
 
 	componentDidMount(){
+		this.socket.on('rollCompleted', async n => {
+			await this.rollDie(n);
+			this.socket.emit('requestPlayersSquares');
+			this.socket.emit('requestCard');
+		});
+
+		this.socket.on('cardServed', card => {
+			this.setState((state, props) => ({
+				card: card
+			}));
+		});
+
+		this.socket.on('playersSquaresUpdated', playersSquares => {
+			this.setState((state, props) => ({
+				playersSquares: playersSquares
+			}));
+		});
+
+		this.socket.on('turnChanged', currentId => {
+			this.setState((state, props) => ({
+				yourTurn: (currentId === this.me.uid)
+			}));
+		});
+
+		this.socket.emit('userSync', this.me.name);
+	}
+
+	async rollDie(n) {
+		let lastNumber = 0;
+		for (let c=0; c<5; c++){
+			let number = lastNumber;
+			while (number === lastNumber)
+				number = Math.floor(Math.random() * 6) + 1;
+			this.setState((state, props) => ({
+				dieNumber: number
+			}));
+			await new Promise(resolve => setTimeout(resolve, 100));
+		}
+
+		this.setState((state, props) => ({
+			dieNumber: n,
+		}));
 	}
 
 	render(){
 		return (
-			<Grid container style={{minHeight: '100vh', minWidth: '100vw'}} direction='row' justify='center' alignItems='center'>
-				<Grid container style={{width: '80%', minHeight: '100vh'}} alignItems='center' justify='center'>
-					<Grid container style={{width: 'calc(40vw - 44vh)'}} direction='column' alignItems='center'>
+			<Grid container key='m' style={{minHeight: '100vh', minWidth: '100vw'}} direction='row' justify='center' alignItems='center'>
+				<Grid container key='ms' style={{width: '80%', minHeight: '100vh'}} alignItems='center' justify='center'>
+					<Grid container key='msc' style={{width: 'calc(40vw - 44vh)'}} direction='column' alignItems='center'>
 						{this.renderCards()}
 					</Grid>
 
-					<Grid item>
+					<Grid item key='msb'>
 						{this.renderBoard()}
 					</Grid>
 
 					{this.renderRight()}
 				</Grid>
 
-				<Grid item style={{width: '20%'}}>
+				<Grid item key='mchat' style={{width: '20%'}}>
 					<Chat socket={this.socket} messages={this.game.messages} me={this.me}/>
 				</Grid>
 			</Grid>
@@ -49,7 +92,7 @@ class Client extends React.Component {
 
 	renderCards(){
 		return [...Array(4).keys()].map(card => (
-			<Grid item>
+			<Grid item key={'msc.' + card}>
 				<Box bgcolor={Consts.COLORS[Consts.ORDER[card]]} style={{height: '18vh', width: '12vh'}} m='2vh' border={2} borderRadius={10}
 					alignItems='center' justifyContent='center' display='flex'>
 
@@ -64,14 +107,46 @@ class Client extends React.Component {
 
 	renderRight(){
 		return (
-			<Grid container style={{width: 'calc(40vw - 44vh)'}} alignContent='center' alignItems='center' justify='center'>
-				<Grid item>
+			<Grid container key='msr' style={{width: 'calc(40vw - 44vh)'}} alignContent='center' alignItems='center' direction='column'>
+				<Grid item key='msrd'>
+					<div onClick={() => this.socket.emit('rollDie')}>
+						<Die number={this.state.dieNumber} color={this.state.yourTurn ? 'transparent' : 'rgba(0, 0, 0, 0.05)'}/>
+					</div>
 				</Grid>
 
-				<Grid item>
-					<Box style={{height: '18vh', width: '12vh'}} m='2vh' border={2} borderRadius={10}/>
+				<Grid item key='msrc'>
+					{this.state.card.present ? this.renderCard() : this.renderCardSpace()}
 				</Grid>
 			</Grid>
+		);
+	}
+
+	renderCardSpace(){
+		return (<Box style={{height: '36vh', width: '24vh'}} m='2vh' border={2} borderRadius={10} m={10} bgcolor='rgba(0, 0, 0, 0.1)'/>);
+	}
+
+	renderCard(){
+		let {type, text, offset, ownerId} = this.state.card;
+		let yours = (ownerId === this.me.uid);
+		return (
+			<Box style={{height: '36vh', width: '24vh'}} m='2vh' border={2} borderRadius={10} m={10} bgcolor={yours ? 'transparent' : 'rgba(0, 0, 0, 0.05)'}>
+				<Grid container direction='column' style={{width: '100%', height: '100%'}} alignItems='center' justify='space-between'>
+					<Grid item><Box p={1}>
+						{type === 0 ? <SysIcon style={{width: '6vh', height: '6vh', color: Consts.COLORS[Consts.SYS]}}/> :
+							type === 1 ? <FinIcon style={{width: '6vh', height: '6vh', color: Consts.COLORS[Consts.FIN]}}/> :
+							type === 2 ? <CCIcon style={{width: '6vh', height: '6vh', color: Consts.COLORS[Consts.CC]}}/> :
+							type === 3 ? <CultIcon style={{width: '6vh', height: '6vh', color: Consts.COLORS[Consts.CULT]}}/> : null}
+					</Box></Grid>
+
+					<Grid item>
+						<Box px='1vh' textAlign='center' fontSize='2vh'>{text}</Box>
+					</Grid>
+
+					<Grid item>
+						<Box textAlign='center' fontSize='2vh' p={1} style={{height: '6vh'}}>{offset}</Box>
+					</Grid>
+				</Grid>
+			</Box>
 		);
 	}
 

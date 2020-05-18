@@ -11,10 +11,16 @@ class Square extends React.Component {
 		this.loc = props.loc;
 		this.index = Square.locations.findIndex(loc => Consts.locEq(loc, this.loc));
 		this.color = this.calcColor(this.index);
+	}
 
-		this.playersHere = [false, false, false, false];
-		for (let c=0; c<4; c++)
-			this.playersHere[c] = (props.playersSquares[c] === this.index);
+	updatePlayersHere(){
+		let playersHere = [];
+		let any = false;
+		for (let c=0; c<this.props.playersSquares.length; c++){
+			playersHere.push(this.props.playersSquares[c] === this.index);
+			any = (any || playersHere[c]);
+		}
+		return {playersHere: playersHere, any: any};
 	}
 
 	static generateLocations(){
@@ -59,7 +65,7 @@ class Square extends React.Component {
 	}
 
 	calcColor(index){
-		if (index == -1)
+		if (index === -1)
 			return Consts.CLEAR
 		if (Consts.locEq(this.loc, Consts.START))
 			return Consts.START_COLOR;
@@ -82,23 +88,24 @@ class Square extends React.Component {
 	}
 
 	render(){
+		let {playersHere, any} = this.updatePlayersHere();
 		let key = "y." + this.loc.y + ".x." + this.loc.x;
 		return (
 			<Grid item key={key} style={{width: Consts.BOX_S, height: '100%'}}>
 				<Box border={(this.color === Consts.CLEAR) ? 0 : 1} style={{width: '100%', height: '100%'}} bgcolor={this.color}>
-					<Grid container key={key + ".icons"}style={{width: '100%', height: '100%'}}>
+					{any ? (<Grid container key={key + ".icons"}style={{width: '100%', height: '100%'}}>
 						{[...Array(2).keys()].map(r => (
 							<Grid container key={key + ".ir." + r}direction='row' style={{width: '100%', height: '50%'}}>
 								{[...Array(2).keys()].map(c => (
 									<Grid item key={key + ".ir" + r + ".ic." + c} style={{width: '50%', height: '100%'}}>
 										<Box p={0.5}>
-											{this.playersHere[2*r+c] ? <img src={Consts.PLAYER_ICONS[2*r+c]}/> : null}
+											{playersHere[2*r+c] ? <img src={Consts.PLAYER_ICONS[2*r+c]}/> : null}
 										</Box>
 									</Grid>
 								))}
 							</Grid>
 						))}
-					</Grid>
+					</Grid>) : null}
 				</Box>
 			</Grid>
 		);

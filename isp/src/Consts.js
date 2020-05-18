@@ -26,8 +26,8 @@ class Consts {
 	static get RED(){return red[500]}
 	static get YELLOW(){return yellow[500]}
 
-	static get ORDER(){return [Consts.CULT, Consts.FIN, Consts.CC, Consts.SYS]}
-	static get COLORS(){return {[Consts.CULT]: Consts.BLUE, [Consts.FIN]: Consts.GREEN, [Consts.CC]: Consts.RED, [Consts.SYS]: Consts.YELLOW}}
+	static get ORDER(){return [Consts.SYS, Consts.FIN, Consts.CC, Consts.CULT]}
+	static get COLORS(){return {[Consts.SYS]: Consts.BLUE, [Consts.FIN]: Consts.GREEN, [Consts.CC]: Consts.RED, [Consts.CULT]: Consts.YELLOW}}
 
 	static get UP(){return {x: 0, y: -1}}
 	static get DOWN(){return {x: 0, y: 1}}

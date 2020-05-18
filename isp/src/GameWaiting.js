@@ -31,6 +31,12 @@ class GameWaiting extends React.Component {
 				goBack: true
 			}));
 		});
+
+		this.socket.on('gameStarted', () => {
+			this.setState((state, props) => ({
+				goForward: true
+			}));
+		});
 	}
 
 	handleQuit = () => {
@@ -42,9 +48,6 @@ class GameWaiting extends React.Component {
 
 	handleStartGame = () => {
 		this.socket.emit("startGame");
-		this.setState((state, props) => ({
-			goForward: true
-		}));
 	}
 
 	render(){
