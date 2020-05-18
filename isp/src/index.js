@@ -7,10 +7,9 @@ import { CssBaseline } from '@material-ui/core';
 import Start from './Start';
 import GameWaiting from './GameWaiting';
 import Client from './Client';
-import openSocket from 'socket.io-client';
+import io from 'socket.io-client';
 
-
-const socket = openSocket('http://localhost:5000');
+const socket = io();
 
 const theme = createMuiTheme({
 	palette: {
