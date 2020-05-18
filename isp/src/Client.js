@@ -1,5 +1,4 @@
 import React from 'react';
-import { Redirect } from 'react-router';
 import { Box, Grid} from '@material-ui/core';
 import CCIcon from '@material-ui/icons/Eco';
 import CultIcon from '@material-ui/icons/SupervisorAccount';
@@ -9,6 +8,7 @@ import Chat from './Chat.js';
 import Square from './Square.js';
 import Die from './Die.js';
 import Consts from './Consts.js';
+import useFitText from 'use-fit-text';
 
 class Client extends React.Component {
 	constructor(props){
@@ -36,13 +36,12 @@ class Client extends React.Component {
 			}));
 		});
 
-		this.socket.on('playersSquaresUpdated', playersSquares => {
-			this.setState((state, props) => ({
-				playersSquares: playersSquares
-			}));
+		this.socket.on('playersSquaresUpdated', async playersSquares => {
+			this.setState({playersSquares: playersSquares});
 		});
 
 		this.socket.on('turnChanged', currentId => {
+			console.log("turn changed", currentId);
 			this.setState((state, props) => ({
 				yourTurn: (currentId === this.me.uid)
 			}));
@@ -122,31 +121,49 @@ class Client extends React.Component {
 	}
 
 	renderCardSpace(){
-		return (<Box style={{height: '36vh', width: '24vh'}} m='2vh' border={2} borderRadius={10} m={10} bgcolor='rgba(0, 0, 0, 0.1)'/>);
+		return (<Box style={{height: '36vh', width: '24vh'}} m={10} border={2} borderRadius={10} bgcolor='rgba(0, 0, 0, 0.1)'/>);
 	}
 
 	renderCard(){
-		let {type, text, offset, ownerId} = this.state.card;
+		let {type, text, offset, ownerId, back} = this.state.card;
 		let yours = (ownerId === this.me.uid);
+
+		if (back)
+			return (
+				<div onClick={() => this.socket.emit('flipCard', this.state.card)}>
+					<Box bgcolor={Consts.COLORS[Consts.ORDER[type]]} m={10} style={{height: '36vh', width: '24vh'}} border={2} borderRadius={10}
+						alignItems='center' justifyContent='center' display='flex'>
+							{type === 0 ? <SysIcon style={{width: '12vh', height: '12vh'}}/> :
+								type === 1 ? <FinIcon style={{width: '12vh', height: '12vh'}}/> :
+								type === 2 ? <CCIcon style={{width: '12vh', height: '12vh'}}/> :
+								type === 3 ? <CultIcon style={{width: '12vh', height: '12vh'}}/> : null}
+					</Box>
+				</div>
+			);
+
 		return (
-			<Box style={{height: '36vh', width: '24vh'}} m='2vh' border={2} borderRadius={10} m={10} bgcolor={yours ? 'transparent' : 'rgba(0, 0, 0, 0.05)'}>
-				<Grid container direction='column' style={{width: '100%', height: '100%'}} alignItems='center' justify='space-between'>
-					<Grid item><Box p={1}>
-						{type === 0 ? <SysIcon style={{width: '6vh', height: '6vh', color: Consts.COLORS[Consts.SYS]}}/> :
-							type === 1 ? <FinIcon style={{width: '6vh', height: '6vh', color: Consts.COLORS[Consts.FIN]}}/> :
-							type === 2 ? <CCIcon style={{width: '6vh', height: '6vh', color: Consts.COLORS[Consts.CC]}}/> :
-							type === 3 ? <CultIcon style={{width: '6vh', height: '6vh', color: Consts.COLORS[Consts.CULT]}}/> : null}
-					</Box></Grid>
+			<div onClick={() => this.socket.emit('surrenderTurn')}>
+				<Box style={{height: '36vh', width: '24vh'}} m={10} border={2} borderRadius={10} bgcolor={yours ? 'transparent' : 'rgba(0, 0, 0, 0.05)'}>
+					<Grid container direction='column' style={{width: '100%', height: '100%'}} alignItems='center' wrap='nowrap'>
+						<Grid item><Box style={{width: '6vh', height: '6vh'}}>
+							{type === 0 ? <SysIcon style={{width: '6vh', height: '6vh', color: Consts.COLORS[Consts.SYS]}}/> :
+								type === 1 ? <FinIcon style={{width: '6vh', height: '6vh', color: Consts.COLORS[Consts.FIN]}}/> :
+								type === 2 ? <CCIcon style={{width: '6vh', height: '6vh', color: Consts.COLORS[Consts.CC]}}/> :
+								type === 3 ? <CultIcon style={{width: '6vh', height: '6vh', color: Consts.COLORS[Consts.CULT]}}/> : null}
+						</Box></Grid>
 
-					<Grid item>
-						<Box px='1vh' textAlign='center' fontSize='2vh'>{text}</Box>
-					</Grid>
+						<Grid item>
+							<Box style={{width: '100%', height: '24vh'}} display='flex' alignItems='center'>
+								<CardText text={text}/>
+							</Box>
+						</Grid>
 
-					<Grid item>
-						<Box textAlign='center' fontSize='2vh' p={1} style={{height: '6vh'}}>{offset}</Box>
+						<Grid item>
+							<Box textAlign='center' display='flex' alignItems='center' fontSize='2vh' style={{height: '6vh'}}>{offset}</Box>
+						</Grid>
 					</Grid>
-				</Grid>
-			</Box>
+				</Box>
+			</div>
 		);
 	}
 
@@ -159,6 +176,14 @@ class Client extends React.Component {
 			</Grid>
 		));
 	}
+}
+
+const CardText = ({text}) => {
+	const { fontSize, ref } = useFitText();
+
+	return (
+		<div ref={ref} style={{ fontSize, width: '22vh', maxHeight: '24vh', textAlign: 'center', verticalAlign: 'middle' }}>{text}</div>
+	);
 }
 
 export default Client;

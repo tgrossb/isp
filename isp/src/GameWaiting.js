@@ -1,6 +1,6 @@
 import React from 'react';
 import { Redirect } from 'react-router';
-import { Button, TextField, Divider, Card, CardContent, Box, Grid, List, ListItemText, IconButton } from '@material-ui/core';
+import { Button, Card, CardContent, Grid, List, ListItemText, IconButton } from '@material-ui/core';
 import ArrowBackIcon from '@material-ui/icons/ArrowBack'
 import Chat from './Chat.js';
 

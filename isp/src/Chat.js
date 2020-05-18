@@ -1,5 +1,5 @@
 import React from 'react';
-import { FormControl, Grid, Box, TextField, Divider, List, ListItem, ListSubheader, ListItemText, InputAdornment, IconButton, Paper } from '@material-ui/core';
+import { Grid, Box, TextField, Divider, List, ListItem, ListSubheader, ListItemText, InputAdornment, IconButton, Paper } from '@material-ui/core';
 import SendIcon from '@material-ui/icons/Send';
 
 class Chat extends React.Component {
@@ -26,9 +26,9 @@ class Chat extends React.Component {
 	}
 
 	formatMessages(messages){
-		let newMessages = new Array();
+		let newMessages = [];
 		for (let message of messages){
-			if (newMessages.length === 0 || (message.senderName != newMessages[newMessages.length-1].senderName))
+			if (newMessages.length === 0 || (message.senderName !== newMessages[newMessages.length-1].senderName))
 				newMessages.push({lines: [message.message], senderName: message.senderName, serverMessage: message.serverMessage})
 			else
 				newMessages[newMessages.length-1].lines.push(message.message);
@@ -47,7 +47,6 @@ class Chat extends React.Component {
 	}
 
 	render(){
-		const {classes} = this.props;
 		return (
 			<Grid container direction='column' justify='space-between' style={{maxHeight: "100vh"}}>
 				<Grid item><Box display='flex' flexDirection='column-reverse' style={{height: "calc(100vh - 72px)", overflow: 'auto'}}>
@@ -80,7 +79,7 @@ class Chat extends React.Component {
 							<ListItemText primary={item}/>
 						</ListItem>
 					))}
-					{sIndex != this.messages.length-1 && <Divider/>}
+					{sIndex !== this.messages.length-1 && <Divider/>}
 				</ul>
 			</li>
 		);

@@ -3,6 +3,7 @@ const path = require('path');
 const http = require('http');
 const express = require('express');
 const socketIO = require('socket.io');
+const Cards = require('./cards.js');
 
 const port = process.env.PORT || 5000;
 const prod = process.env.NODE_ENV === 'production'
@@ -20,6 +21,8 @@ let ids = new Map();
 let gameCodes = new Array();
 let games = new Map();
 let users = new Map();
+
+let cardDecks = new Cards();
 
 io.on('connection', socket => {
 	console.log("New user " + socket.id);
@@ -41,7 +44,7 @@ io.on('connection', socket => {
 			return;
 
 		let game = games.get(user.currentRoom);
-		if (game.currentPlayer){
+		if (game.started){
 			let locations = [];
 			for (let p of game.players)
 				locations.push(p.location);
@@ -57,10 +60,12 @@ io.on('connection', socket => {
 		let gameCode = generateGameCode();
 		gameCodes.push(gameCode);
 
-		let game = {gameCode: gameCode, leaderId: user.id, players: [{
+		let game = {gameCode: gameCode, leaderId: user.id, started: false, players: [{
 			id: user.id,
 			name: user.name,
-			location: 0
+			location: 0,
+			drew: false,
+			rolled: false
 		}], messages: [{message: user.name + " joined the game", senderName: 'Server'}]};
 		games.set(gameCode, game);
 
@@ -74,7 +79,7 @@ io.on('connection', socket => {
 		let user = userNamed(socket, params.name);
 
 		let game = games.get(params.gameCode);
-		game.players.push({id: user.id, name: user.name, location: 0});
+		game.players.push({id: user.id, name: user.name, location: 0, drew: false, rolled: false});
 		game.messages.push({message: user.name + " joined the game", senderName: 'Server'});
 
 		socket.join(params.gameCode);
@@ -120,6 +125,7 @@ io.on('connection', socket => {
 		let user = users.get(name);
 		let game = games.get(user.currentRoom);
 		game.currentPlayer = 0;
+		game.started = true;
 		io.to(user.currentRoom).emit('gameStarted');
 		io.to(user.currentRoom).emit("turnChanged", game.players[game.currentPlayer].id);
 	});
@@ -132,10 +138,12 @@ io.on('connection', socket => {
 		if (pIndex !== game.currentPlayer)
 			return;
 
-		let num = Math.floor(Math.random() * 6) + 1;
-		io.to(user.currentRoom).emit("rollCompleted", num);
-		game.players[pIndex].location += num;
-		game.currentPlayer = (pIndex+1) % game.players.length;
+		if (!game.players[game.currentPlayer].rolled){
+			let num = Math.floor(Math.random() * 6) + 1;
+			io.to(user.currentRoom).emit("rollCompleted", num);
+			game.players[pIndex].location = Math.min(game.players[pIndex].location + num, 61);
+			game.players[pIndex].rolled = true;
+		}
 	});
 
 	socket.on('requestPlayersSquares', () => {
@@ -154,21 +162,51 @@ io.on('connection', socket => {
 		let name = ids.get(socket.id);
 		let user = users.get(name);
 		let game = games.get(user.currentRoom);
+		if (!game.players[game.currentPlayer].rolled)
+			return;
 
-		let cardKey = calcCardKey(game.players[game.currentPlayer].location);
-		let card = getCard(cardKey);
-		card.ownerId = game.players[game.currentPlayer].id;
-		console.log("serving card");
-		socket.emit('cardServed', card);
+		if (!game.players[game.currentPlayer].drew){
+			let cardKey = calcCardKey(game.players[game.currentPlayer].location);
+			let card = cardDecks.getCard(cardKey);
+			card.ownerId = game.players[game.currentPlayer].id;
+			card.back = true;
+			io.to(user.currentRoom).emit('cardServed', card);
+			game.players[game.currentPlayer].drew = true;
+		}
+	});
 
-		game.players[game.currentPlayer].location += card.offset;
+	socket.on('flipCard', card => {
+		let name = ids.get(socket.id);
+		let user = users.get(name);
+		let game = games.get(user.currentRoom);
+		let pIndex = game.players.findIndex(p => (p.id === user.id));
+		if (pIndex !== game.currentPlayer)
+			return;
+
+		card.back = false;
+		io.to(user.currentRoom).emit('cardServed', card);
+
+		game.players[game.currentPlayer].location = Math.max(Math.min(game.players[game.currentPlayer].location + card.offset, 61), 0);
 		let locations = [];
 		for (let p of game.players)
 			locations.push(p.location);
+		io.to(user.currentRoom).emit('playersSquaresUpdated', locations);
+	});
 
-		console.log("updating locations");
-		socket.emit('playersSquaresUpdated', locations);
-		socket.emit('turnChanged', game.players[game.currentPlayer].id);
+	socket.on('surrenderTurn', () => {
+		let name = ids.get(socket.id);
+		let user = users.get(name);
+		let game = games.get(user.currentRoom);
+		let pIndex = game.players.findIndex(p => (p.id === user.id));
+		if (pIndex !== game.currentPlayer)
+			return;
+
+		io.to(user.currentRoom).emit('cardServed', {present: false, offset: 0});
+
+		game.currentPlayer = (game.currentPlayer+1) % game.players.length;
+		game.players[game.currentPlayer].rolled = false;
+		game.players[game.currentPlayer].drew = false;
+		io.to(user.currentRoom).emit('turnChanged', game.players[game.currentPlayer].id);
 	})
 });
 
@@ -211,14 +249,6 @@ function calcCardKey(index){
 	index -= 8;
 	if (index < 4)
 		return index;
-	return 4;
-}
 
-function getCard(cardKey){
-	if (cardKey === -1)
-		return {present: false};
-	else if (cardKey < 4)
-		return {type: cardKey, text: 'sample text', offset: 1};
-	else
-		return {present: false};
+	return 4;
 }

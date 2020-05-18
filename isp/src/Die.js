@@ -1,12 +1,7 @@
 import React from 'react';
 import { Box, Grid } from '@material-ui/core';
-import Consts from './Consts';
 
 class Die extends React.Component {
-	constructor(props){
-		super(props);
-	}
-
 	updateDots(){
 		let number = this.props.number;
 

@@ -99,7 +99,7 @@ class Square extends React.Component {
 								{[...Array(2).keys()].map(c => (
 									<Grid item key={key + ".ir" + r + ".ic." + c} style={{width: '50%', height: '100%'}}>
 										<Box p={0.5}>
-											{playersHere[2*r+c] ? <img src={Consts.PLAYER_ICONS[2*r+c]}/> : null}
+											{playersHere[2*r+c] ? <img src={Consts.PLAYER_ICONS[2*r+c]} alt="player icon"/> : null}
 										</Box>
 									</Grid>
 								))}
