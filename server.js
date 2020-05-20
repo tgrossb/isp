@@ -60,7 +60,7 @@ io.on('connection', socket => {
 		let gameCode = generateGameCode();
 		gameCodes.push(gameCode);
 
-		let game = {gameCode: gameCode, leaderId: user.id, started: false, players: [{
+		let game = {gameCode: gameCode, leaderId: user.id, started: false, won: false, players: [{
 			id: user.id,
 			name: user.name,
 			location: 0,
@@ -135,7 +135,7 @@ io.on('connection', socket => {
 		let user = users.get(name);
 		let game = games.get(user.currentRoom);
 		let pIndex = game.players.findIndex(p => (p.id === user.id));
-		if (pIndex !== game.currentPlayer)
+		if (pIndex !== game.currentPlayer || game.won)
 			return;
 
 		if (!game.players[game.currentPlayer].rolled){
@@ -156,13 +156,14 @@ io.on('connection', socket => {
 			locations.push(p.location);
 
 		socket.emit('playersSquaresUpdated', locations);
+		checkWinner(game, locations);
 	});
 
 	socket.on('requestCard', () => {
 		let name = ids.get(socket.id);
 		let user = users.get(name);
 		let game = games.get(user.currentRoom);
-		if (!game.players[game.currentPlayer].rolled)
+		if (!game.players[game.currentPlayer].rolled || game.won)
 			return;
 
 		if (!game.players[game.currentPlayer].drew){
@@ -180,7 +181,7 @@ io.on('connection', socket => {
 		let user = users.get(name);
 		let game = games.get(user.currentRoom);
 		let pIndex = game.players.findIndex(p => (p.id === user.id));
-		if (pIndex !== game.currentPlayer)
+		if (pIndex !== game.currentPlayer || game.won)
 			return;
 
 		card.back = false;
@@ -191,6 +192,7 @@ io.on('connection', socket => {
 		for (let p of game.players)
 			locations.push(p.location);
 		io.to(user.currentRoom).emit('playersSquaresUpdated', locations);
+		checkWinner(game, locations);
 	});
 
 	socket.on('surrenderTurn', () => {
@@ -198,7 +200,7 @@ io.on('connection', socket => {
 		let user = users.get(name);
 		let game = games.get(user.currentRoom);
 		let pIndex = game.players.findIndex(p => (p.id === user.id));
-		if (pIndex !== game.currentPlayer)
+		if (pIndex !== game.currentPlayer || game.won)
 			return;
 
 		io.to(user.currentRoom).emit('cardServed', {present: false, offset: 0});
@@ -209,6 +211,14 @@ io.on('connection', socket => {
 		io.to(user.currentRoom).emit('turnChanged', game.players[game.currentPlayer].id);
 	})
 });
+
+function checkWinner(game, locations){
+	let winnerIndex = locations.findIndex(loc => (loc == 61));
+	if (winnerIndex === -1)
+		return;
+	let winnerName = game.players[winnerIndex].name;
+	io.to(game.gameCode).emit("winner", winnerName);
+}
 
 function userNamed(socket, name){
 	if (!users.has(name))

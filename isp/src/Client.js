@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, Grid} from '@material-ui/core';
+import { Redirect } from 'react-router';
+import { Box, Grid } from '@material-ui/core';
 import CCIcon from '@material-ui/icons/Eco';
 import CultIcon from '@material-ui/icons/SupervisorAccount';
 import SysIcon from '@material-ui/icons/Settings';
@@ -20,7 +21,7 @@ class Client extends React.Component {
 
 		Square.generateLocations();
 
-		this.state = {playersSquares: [0, 0, 0, 0], dieNumber: 6, card: {present: false}, yourTurn: false};
+		this.state = {playersSquares: [0, 0, 0, 0], dieNumber: 6, card: {present: false}, yourTurn: false, winner: null, goHome: false};
 	}
 
 	componentDidMount(){
@@ -41,10 +42,13 @@ class Client extends React.Component {
 		});
 
 		this.socket.on('turnChanged', currentId => {
-			console.log("turn changed", currentId);
 			this.setState((state, props) => ({
 				yourTurn: (currentId === this.me.uid)
 			}));
+		});
+
+		this.socket.on('winner', name => {
+			this.setState({winner: name});
 		});
 
 		this.socket.emit('userSync', this.me.name);
@@ -68,24 +72,34 @@ class Client extends React.Component {
 	}
 
 	render(){
+		if (this.state.goHome)
+			return <Redirect to={{pathname: '/', state: {name: this.me.name}}}/>;
 		return (
-			<Grid container key='m' style={{minHeight: '100vh', minWidth: '100vw'}} direction='row' justify='center' alignItems='center'>
-				<Grid container key='ms' style={{width: '80%', minHeight: '100vh'}} alignItems='center' justify='center'>
-					<Grid container key='msc' style={{width: 'calc(40vw - 44vh)'}} direction='column' alignItems='center'>
-						{this.renderCards()}
+			<Box>
+				<Grid container key='m' style={{minHeight: '100vh', minWidth: '100vw', position: 'absolute'}} direction='row' justify='center' alignItems='center'>
+					<Grid container key='ms' style={{width: '80%', minHeight: '100vh'}} alignItems='center' justify='center'>
+						<Grid container key='msc' style={{width: 'calc(40vw - 44vh)'}} direction='column' alignItems='center'>
+							{this.renderCards()}
+						</Grid>
+
+						<Grid item key='msb'>
+							{this.renderBoard()}
+						</Grid>
+
+						{this.renderRight()}
 					</Grid>
 
-					<Grid item key='msb'>
-						{this.renderBoard()}
+					<Grid item key='mchat' style={{width: '20%'}}>
+						<Chat socket={this.socket} messages={this.game.messages} me={this.me}/>
 					</Grid>
-
-					{this.renderRight()}
 				</Grid>
 
-				<Grid item key='mchat' style={{width: '20%'}}>
-					<Chat socket={this.socket} messages={this.game.messages} me={this.me}/>
-				</Grid>
-			</Grid>
+				{this.state.winner && (
+					<div onClick={() => this.setState({goHome: true})}>
+					<Box style={{position: 'absolute', width: '80vw', height: '10vh', top: '41vh'}} bgcolor='rgba(0, 0, 0, 0.5)' display='flex' justifyContent='center' alignItems='center'>
+						<h1 style={{color: 'white'}}>Theo won</h1>
+					</Box></div>)}
+			</Box>
 		);
 	}
 

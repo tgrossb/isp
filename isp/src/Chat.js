@@ -23,6 +23,11 @@ class Chat extends React.Component {
 				messages: this.messages
 			}));
 		});
+		this.box.scrollTop = this.box.scrollHeight;
+	}
+
+	componentDidUpdate(){
+		this.box.scrollTop = this.box.scrollHeight;
 	}
 
 	formatMessages(messages){
@@ -49,7 +54,7 @@ class Chat extends React.Component {
 	render(){
 		return (
 			<Grid container direction='column' justify='space-between' style={{maxHeight: "100vh"}}>
-				<Grid item><Box display='flex' flexDirection='column-reverse' style={{height: "calc(100vh - 72px)", overflow: 'auto'}}>
+				<Grid item><Box display='flex' flexDirection='column' style={{height: "calc(100vh - 72px)", overflow: 'auto'}} ref={el => (this.box = el)}>
 					<Paper style={{height: "100%"}}>
 						<List dense style={{backgroundColor: 'inherit'}}>{this.state.messages.map(this.renderItem)}</List>
 					</Paper>
