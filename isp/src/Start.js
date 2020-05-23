@@ -2,7 +2,7 @@ import React from 'react';
 import { Redirect } from 'react-router';
 import InputMask from "react-input-mask";
 import { Button, TextField, Card, CardContent, Box, Grid } from '@material-ui/core';
-import Logo from './shanghai.svg';
+import Logo from './logo.svg';
 
 class Start extends React.Component {
 	constructor(props){
