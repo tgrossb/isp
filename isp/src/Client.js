@@ -97,7 +97,7 @@ class Client extends React.Component {
 				{this.state.winner && (
 					<div onClick={() => this.setState({goHome: true})}>
 					<Box style={{position: 'absolute', width: '80vw', height: '10vh', top: '41vh'}} bgcolor='rgba(0, 0, 0, 0.5)' display='flex' justifyContent='center' alignItems='center'>
-						<h1 style={{color: 'white'}}>Theo won</h1>
+						<h1 style={{color: 'white'}}>{this.state.winner + " won"}</h1>
 					</Box></div>)}
 			</Box>
 		);
